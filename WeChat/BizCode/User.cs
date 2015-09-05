@@ -34,13 +34,13 @@ namespace WeChat
         //friend
         public int MemberCount { get; set; }
         public User[] MemberList { get; set; }
-        public int OwnerUin { get; set; }
+        public long OwnerUin { get; set; }
         public int Statues { get; set; }
         public int AttrStatus { get; set; }
         public string Province { get; set; }
         public string City { get; set; }
         public string Alias { get; set; }
-        public int UniFriend { get; set; }
+        public long UniFriend { get; set; }
         public string DisplayName { get; set; }
         public int ChatRoomId { get; set; }
 

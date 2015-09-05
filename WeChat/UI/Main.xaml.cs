@@ -13,6 +13,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.Configuration;
 
 namespace WeChat
 {
@@ -22,17 +25,122 @@ namespace WeChat
     public partial class Main : Window
     {
         string redirect_uri;
+
+        /// <summary>
+        /// 刷新新闻的计时器
+        /// </summary>
+        System.Timers.Timer timerGetNews = new System.Timers.Timer();
+
+        /// <summary>
+        /// 直播的多个群列表
+        /// </summary>
+        List<string> listContact = new List<string>();
+
         public Main(string redirect_uri)
         {
             InitializeComponent();
             if (redirect_uri == null)   return;
             this.redirect_uri = redirect_uri;
             Data.main = this;
+
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(CheckValidationResult);
+            if (!string.IsNullOrEmpty(ConfigurationManager.AppSettings["ContactListForLiveNews"]))
+            {
+                listContact = ConfigurationManager.AppSettings["ContactListForLiveNews"].Split(';').ToList();
+            }
+            timerGetNews.Interval = WeGlobal.NewsReflashTimer * 1000;
+            timerGetNews.Elapsed += timerGetNews_Elapsed;
+        }
+
+        void timerGetNews_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            var news = LiveNews.GetNews();
+            for (int i = 0; i < news.Count; i++)
+            {
+                foreach (var contact in listContact)
+                {
+                    SendMessage(contact, news[i].NewsDate.ToShortTimeString() + " " + news[i].NewsTitle);
+                }
+            }
+        }
+
+        public async void SendMessage(string contact, string message)
+        {           
+            var u = from c in Data.Contactlist where (c.Value.NickName == contact 
+                        || c.Value.DisplayName == contact || c.Value.Alias == contact) select c.Value;
+            if (u.Count() == 0)
+            {
+                Trace.WriteLine(string.Format("发送消息失败！未找到群：{0}, 消息：{1}。", contact, message));
+                return;
+            }
+            string userKey = u.First().UserName;
+            long time = Time.Now();
+
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxsendmsg?r={0}&pass_ticket={1}&sid={2}&skey={3}",
+                time, Data.pass_ticket, Data.wxsid, Data.skey);
+
+            WebRequest request = WebRequest.Create(url);
+            //HttpWebRequest request = HttpWebRequest.CreateHttp(url);
+            request.Method = "POST";
+
+            JObject jsonObj = new JObject();
+            jsonObj.Add("BaseRequest", JObject.FromObject(Data.baseRequest));
+            SendMsg msg = new SendMsg();
+            msg.FromUserName = Data.me.UserName;
+            msg.ToUserName = userKey;
+            msg.Type = 1;
+            msg.Content = message.Replace("\r", "");
+            msg.ClientMsgId = time;
+            msg.LocalID = time;
+            
+            jsonObj.Add("Msg", JObject.FromObject(msg));
+
+            byte[] byteArray = Encoding.UTF8.GetBytes(jsonObj.ToString().Replace("\r\n", ""));
+            request.ContentType = "application/json; charset=UTF-8";
+            request.ContentLength = byteArray.Length;
+            Stream dataStream = request.GetRequestStream();
+            dataStream.Write(byteArray, 0, byteArray.Length);
+            dataStream.Close();
+
+            Trace.WriteLine("发送消息...");
+            Trace.WriteLine(jsonObj.ToString().Replace("\r\n", ""));
+       
+            WebResponse response = await request.GetResponseAsync();
+            dataStream = response.GetResponseStream();            
+            StreamReader reader = new StreamReader(dataStream);
+            string ret = reader.ReadToEnd();
+            webwxsendmsg wxsendmsg = JsonConvert.DeserializeObject<webwxsendmsg>(ret);
+            reader.Close();
+            dataStream.Close();
+            response.Close();
+
+            //如果发送失败，调用同步消息获取最新synckey， 再重发一次？               
+            if (wxsendmsg.MsgID == null)
+            {
+                this.同步消息();
+                response = request.GetResponse();
+                dataStream = response.GetResponseStream();
+                reader = new StreamReader(dataStream);
+                ret = reader.ReadToEnd();
+                wxsendmsg = JsonConvert.DeserializeObject<webwxsendmsg>(ret);
+                reader.Close();
+                dataStream.Close();
+                response.Close();
+            }
+
+            Trace.WriteLine(string.Format("发送消息成功！发送到：{0}, 消息：{1}。", contact, message));
+        }
+
+        private static bool CheckValidationResult(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+        {
+            return true; //总是接受  
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            //显示托盘();
+            显示托盘();
             获取登录信息();
             获取会话();
             读取消息();
@@ -45,6 +153,7 @@ namespace WeChat
         {
             backgroundWorker = new BackgroundWorker();
             backgroundWorker.DoWork += 后台线程;
+            backgroundWorker.WorkerSupportsCancellation = true;
             //backgroundWorker.RunWorkerCompleted += 退出登录;
             backgroundWorker.RunWorkerAsync();
         }
@@ -54,7 +163,11 @@ namespace WeChat
             获取通讯录();
             状态提醒();
             while (!backgroundWorker.CancellationPending)
+            {
                 同步消息();
+                //隔15s再同步
+                System.Threading.Thread.Sleep(15000);
+            }
         }
 
         private void OnNotifyIconClick(object sender, EventArgs e)
@@ -116,10 +229,11 @@ namespace WeChat
 
         void 获取会话()
         {
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxinit" +
-                "?pass_ticket=" + Data.pass_ticket +
-                "&skey=" + Data.skey +
-                "&r=" + Time.Now();
+            //string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxinit" +
+            //    "?pass_ticket=" + Data.pass_ticket +
+            //    "&skey=" + Data.skey +
+            //    "&r=" + Time.Now();
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxinit?r={0}&pass_ticket={1}", 0 - Time.Now(), Data.pass_ticket);
             WebRequest request = WebRequest.Create(url);
             request.Method = "POST";
 
@@ -136,7 +250,8 @@ namespace WeChat
             WebResponse response = request.GetResponse();
             dataStream = response.GetResponseStream();
             StreamReader reader = new StreamReader(dataStream);
-            webwxinit init = JsonConvert.DeserializeObject<webwxinit>(reader.ReadToEnd());
+            string initResult = reader.ReadToEnd();
+            webwxinit init = JsonConvert.DeserializeObject<webwxinit>(initResult);
             Data.me = init.User;
             foreach (User user in init.ContactList)
             {
@@ -168,11 +283,13 @@ namespace WeChat
         void 读取消息()
         {
             long time = Time.Now();
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsync" +
-                "?pass_ticket=" + Data.pass_ticket +
-                "&sid=" + Data.wxsid +
-                "&skey=" + Data.skey +
-                "&r=" + time;
+            //string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsync" +
+            //    "?pass_ticket=" + Data.pass_ticket +
+            //    "&sid=" + Data.wxsid +
+            //    "&skey=" + Data.skey +
+            //    "&r=" + time;
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxsync?r={0}&pass_ticket={1}&sid={2}&skey={3}",
+                0 - Time.Now(), Data.pass_ticket, Data.wxsid, Data.skey);
             WebRequest request = WebRequest.Create(url);
             request.Method = "POST";
 
@@ -191,7 +308,8 @@ namespace WeChat
             WebResponse response = request.GetResponse();
             dataStream = response.GetResponseStream();
             StreamReader reader = new StreamReader(dataStream);
-            webwxsync sync = JsonConvert.DeserializeObject<webwxsync>(reader.ReadToEnd());
+            string rlt = reader.ReadToEnd();
+            webwxsync sync = JsonConvert.DeserializeObject<webwxsync>(rlt);
             Data.synckey = sync.SyncKey;
 
             reader.Close();
@@ -209,8 +327,9 @@ namespace WeChat
 
             if (sync.BaseResponse.Ret != 0)
             {
-                MessageBox.Show("读取消息失败,webwxsync.BaseResponse.Ret:" + sync.BaseResponse.Ret, "错误", MessageBoxButton.OK, MessageBoxImage.Information);
-                Close();
+                //MessageBox.Show("读取消息失败,webwxsync.BaseResponse.Ret:" + sync.BaseResponse.Ret, "错误", MessageBoxButton.OK, MessageBoxImage.Information);
+                //Close();
+                Trace.WriteLine("读取消息失败,webwxsync.BaseResponse.Ret:" + sync.BaseResponse.Ret);
             }
 
             foreach (Msg msg in sync.AddMsgList)
@@ -249,7 +368,9 @@ namespace WeChat
             else
             {
                 //加入会话列表
-                Data.Chatlist.Add(friend, Data.Contactlist[friend]);
+                if (!Data.Chatlist.ContainsKey(friend))
+                    Data.Chatlist.Add(friend, Data.Contactlist[friend]);
+
                 //刷新ui
                 if (current_isChat)
                     Dispatcher.BeginInvoke(new Action<bool>(更新界面), true);
@@ -262,10 +383,12 @@ namespace WeChat
 
         void 获取通讯录()
         {
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxgetcontact" +
-                "?pass_ticket=" + Data.pass_ticket +
-                "&skey=" + Data.skey +
-                "&r=" + Time.Now();
+            //string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxgetcontact" +
+            //    "?pass_ticket=" + Data.pass_ticket +
+            //    "&skey=" + Data.skey +
+            //    "&r=" + Time.Now();
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxgetcontact?r={0}&pass_ticket={1}&skey={2}",
+                0 - Time.Now(), Data.pass_ticket, Data.skey);
             WebRequest request = WebRequest.Create(url);
             request.Headers.Add(HttpRequestHeader.Cookie, Data.cookie);
             request.ContentType = "application/json; charset=UTF-8";
@@ -295,11 +418,14 @@ namespace WeChat
         void 状态提醒()
         {
             long time = Time.Now();
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxstatusnotify" +
-                "?pass_ticket=" + Data.pass_ticket +
-                "&sid=" + Data.wxsid +
-                "&skey=" + Data.skey +
-                "&r=" + time;
+            //string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxstatusnotify" +
+            //    "?pass_ticket=" + Data.pass_ticket +
+            //    "&sid=" + Data.wxsid +
+            //    "&skey=" + Data.skey +
+            //    "&r=" + time;
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxstatusnotify?r={0}&pass_ticket={1}&sid={2}&skey={3}",
+                0 - Time.Now(), Data.pass_ticket, Data.wxsid, Data.skey);
+
             WebRequest request = WebRequest.Create(url);
             request.Method = "POST";
 
@@ -348,14 +474,18 @@ namespace WeChat
 
         void 同步消息()
         {
-            string url = "http://webpush.weixin.qq.com/cgi-bin/mmwebwx-bin/synccheck" +
-                "?pass_ticket=" + Data.pass_ticket +
-                "&skey=" + Data.skey +
-                "&sid=" + Data.wxsid +
-                "&uin=" + Data.wxuin +
-                "&deviceid=" + Data.device_id +
-                "&synckey=" + Data.synckey.get_urlstring() +
-                "&_=" + Time.Now();
+            //string url = "http://webpush.weixin.qq.com/cgi-bin/mmwebwx-bin/synccheck" +
+            //    "?pass_ticket=" + Data.pass_ticket +
+            //    "&skey=" + Data.skey +
+            //    "&sid=" + Data.wxsid +
+            //    "&uin=" + Data.wxuin +
+            //    "&deviceid=" + Data.device_id +
+            //    "&synckey=" + Data.synckey.get_urlstring() +
+            //    "&_=" + Time.Now();
+
+            ///cgi-bin/mmwebwx-bin/synccheck?r=1440585331636&skey=%40crypt_67c13b2d_631cde5822b6fd866704b9045a13d17c&sid=jmTznox8qavfBu7%2F&uin=1547229180&deviceid=e824539813213050&synckey=1_637639781%7C2_637649490%7C3_637649454%7C11_637649450%7C201_1440585302%7C1000_1440581558 
+            string url = string.Format("https://webpush2.weixin.qq.com/cgi-bin/mmwebwx-bin/synccheck?r={0}&pass_ticket={1}&sid={2}&skey={3}&uin={4}&deviceid={5}&synckey={6}&lang=zh_CN",
+                Time.Now(), Data.pass_ticket, Data.wxsid, Data.skey, Data.wxuin, Data.device_id, Data.synckey.get_urlstring());
 
             WebRequest request = WebRequest.Create(url);
             WebResponse response = request.GetResponse();
@@ -374,8 +504,9 @@ namespace WeChat
 
             if (!ret.retcode.Equals("0"))
             {
-                MessageBox.Show("同步失败,synccheck.retcode:" + ret.retcode, "错误", MessageBoxButton.OK, MessageBoxImage.Information);
-                Close();
+                //MessageBox.Show("同步失败,synccheck.retcode:" + ret.retcode, "错误", MessageBoxButton.OK, MessageBoxImage.Information);
+                //Close();
+                Trace.WriteLine("同步失败,synccheck.retcode:" + ret.retcode);
             }
 
             if (!ret.selector.Equals("0"))
@@ -425,6 +556,20 @@ namespace WeChat
         private void OnMin(object sender, MouseButtonEventArgs e)
         {
             Hide();
+        }
+
+        private void btnStart_Click(object sender, RoutedEventArgs e)
+        {
+            timerGetNews.Start();
+            btnStart.IsEnabled = false;
+            btnStop.IsEnabled = true;
+        }
+
+        private void btnStop_Click(object sender, RoutedEventArgs e)
+        {
+            timerGetNews.Stop();
+            btnStart.IsEnabled = true;
+            btnStop.IsEnabled = false;
         }
 
     }

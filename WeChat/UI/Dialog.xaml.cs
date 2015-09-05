@@ -48,7 +48,12 @@ namespace WeChat
         {
             if (msg.MsgType != 1)
                 return;
-            RecvBox.Text += Data.Contactlist[msg.FromUserName].DisplayName + ":\n";
+            
+            if(msg.FromUserName == Data.me.UserName)
+                RecvBox.Text += Data.me.NickName + ":\n";
+            else
+                RecvBox.Text += Data.Contactlist[msg.FromUserName].DisplayName + ":\n";
+
             RecvBox.Text += msg.Content + "\n";
             RecvBox.ScrollToEnd();
         }
@@ -56,11 +61,10 @@ namespace WeChat
         public void Send(object sender, MouseButtonEventArgs e)
         {
             long time = Time.Now();
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsendmsg" +
-                "?sid=" + Data.wxsid +
-                "&skey=" + Data.skey +
-                "&pass_ticket=" + Data.pass_ticket +
-                "&r=" + time;
+           
+            string url = string.Format(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxsendmsg?r={0}&pass_ticket={1}&sid={2}&skey={3}",
+                time, Data.pass_ticket, Data.wxsid, Data.skey);
+
             WebRequest request = WebRequest.Create(url);
             request.Method = "POST";
 
@@ -93,7 +97,7 @@ namespace WeChat
             dataStream.Close();
             response.Close();
             Msg recvmsg = new Msg();
-            recvmsg.MsgId = wxsendmsg.MsgID;
+            recvmsg.MsgId = wxsendmsg.MsgID.HasValue ? wxsendmsg.MsgID.Value : -1;
             recvmsg.FromUserName = msg.FromUserName;
             recvmsg.ToUserName = msg.ToUserName;
             recvmsg.MsgType = msg.Type;

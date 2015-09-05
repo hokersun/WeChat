@@ -17,6 +17,9 @@ using System.IO;
 using System.Net;
 using System.ComponentModel;
 using System.Threading;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using Newtonsoft.Json;
 
 namespace WeChat
 {
@@ -45,6 +48,9 @@ namespace WeChat
             //test();
             //return;
             开启后台线程();
+
+            //string ret = "{\"BaseResponse\": {\"Ret\": 1102,\"ErrMsg\": \"\"},\"MsgID\": \"\",\"LocalID\": \"\"}";
+            //webwxsendmsg wxsendmsg = JsonConvert.DeserializeObject<webwxsendmsg>(ret);
         }
 
         BackgroundWorker backgroundWorker;
@@ -53,6 +59,7 @@ namespace WeChat
             backgroundWorker = new BackgroundWorker();
             backgroundWorker.DoWork += 后台线程;
             backgroundWorker.WorkerReportsProgress = true;
+            backgroundWorker.WorkerSupportsCancellation = true;
             backgroundWorker.ProgressChanged += 登录状态;
             backgroundWorker.RunWorkerCompleted += 登录完毕;
             backgroundWorker.RunWorkerAsync();
@@ -66,10 +73,11 @@ namespace WeChat
             //等待登录
             while (!backgroundWorker.CancellationPending)
             {
-                WebRequest request = WebRequest.Create("http://wx.qq.com/cgi-bin/mmwebwx-bin/login" +
-                    "?tip=" + tip +
+                ///cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=YYQaWByPSA==&tip=1&r=-1696543151 
+                WebRequest request = WebRequest.Create(WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/login" +
+                    "?loginicon=true&tip=" + tip +
                     "&uuid=" + uuid +
-                    "&_=" + Time.Now());
+                    string.Format("&r={0}",0-Time.Now()));
                 WebResponse response = request.GetResponse();
                 Stream dataStream = response.GetResponseStream();
                 StreamReader reader = new StreamReader(dataStream);
@@ -88,12 +96,12 @@ namespace WeChat
                         break;
                     case "201"://已扫描
                         tip = 0;
-                        //状态报告(1);
-                        //状态报告(2);
+                        状态报告(1);
+                        状态报告(2);
                         backgroundWorker.ReportProgress(201);
                         break;
                     case "200"://已登录
-                        //状态报告(3);
+                        状态报告(3);
                         backgroundWorker.ReportProgress(201);
                         redirect_uri = ret.Split('"')[1];
                         backgroundWorker.CancelAsync();
@@ -107,24 +115,39 @@ namespace WeChat
 
         }
 
+        private static bool CheckValidationResult(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors)
+        {
+            return true; //总是接受  
+        }
+
         void 获取二维码uuid()
         {
-            string uri = "http://login.weixin.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=http%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=" + Time.Now();
+            // /jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx2.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN 
+            string uri = WeGlobal.WechatHost + "jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx2.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=" + Time.Now();
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(CheckValidationResult);
+            //X509Certificate2 certificate = new X509Certificate2(PATH_TO_CERTIFICATE, PASSWORD, X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.MachineKeySet);
+            //request.ClientCertificates.Add(new X509Certificate(@"D:\abc.cer"));
+            request.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36";
+            request.ProtocolVersion = HttpVersion.Version10;
             WebResponse response = request.GetResponse();
             Stream dataStream = response.GetResponseStream();
             StreamReader reader = new StreamReader(dataStream);
             string ret = reader.ReadToEnd();
             reader.Close();
             dataStream.Close();
-            response.Close();
+            response.Close();           
+
             uuid = ret.Split('"')[1];
             tip = 1;
         }
 
         void 获取二维码图片()
         {
-            Uri uri = new Uri("http://login.weixin.qq.com/qrcode/" + uuid + "?t=webwx&_=" + Time.Now(), UriKind.Absolute);
+            ///qrcode/YYQaWByPSA==
+            Uri uri = new Uri(WeGlobal.WechatHost + "qrcode/" + uuid + "?t=webwx&_=" + Time.Now(), UriKind.Absolute);
             qrcode.Source = new BitmapImage(uri);
         }
 
@@ -134,7 +157,7 @@ namespace WeChat
             Dispatcher.BeginInvoke(new Action(获取二维码图片));
         }
 
-        /*
+        
         DateTime login_time;
         void 状态报告(int state)
         {
@@ -154,7 +177,7 @@ namespace WeChat
                     break;
             }
 
-            string url = "http://wx.qq.com/cgi-bin/mmwebwx-bin/webwxstatreport?type=1&skey=&pass_ticket=undefined&r=" + Time.Now();
+            string url = WeGlobal.WechatHost + "cgi-bin/mmwebwx-bin/webwxstatreport?type=1&skey=&pass_ticket=undefined&r=" + Time.Now();
             WebRequest request = WebRequest.Create(url);
             request.Method = "POST";
             byte[] byteArray = Encoding.UTF8.GetBytes(postData);
@@ -166,7 +189,7 @@ namespace WeChat
             WebResponse response = request.GetResponse();
             response.Close();
         }
-        */
+        
 
         void 登录状态(object sender, ProgressChangedEventArgs e)
         {

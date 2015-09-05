@@ -1,0 +1,28 @@
+﻿
+
+/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx2.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN 
+/pingd?dm=wx2.qq.com&pvi=2951751680&si=s6258631680&url=/&arg=&ty=1&rdm=wx2.qq.com&rurl=/&rarg=&adt=&r2=43209744&r3=-1&r4=1&fl=18.0&scr=1366x768&scl=32-bit&lg=zh-cn&jv=1&tz=-8&ct=&ext=adid=&pf=&random=1440510587225
+/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=YYQaWByPSA==&tip=1&r=-1696543151 
+/qrcode/YYQaWByPSA==
+/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=YYQaWByPSA==&tip=0&r=-1696570199 
+
+
+
+https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxnewloginpage?ticket=A2oGJDxJVSkMLpmGGQgx7o7b@qrticket_0&uuid=gaN8tVAXuA==&lang=zh_CN&scan=1440516706&vcdataticket=AQYzaYleDgTMVhR4JunAohJQ&vccdtstr=Ya2o2nymIPVmvtR1tahanbx13d8bZayNaMBTEseBbwNTODOicY2Mfpppf7oP8t5W
+
+#	Result	Protocol	Host	URL	Body	Caching	Content-Type	Process	Comments	Custom	
+2	200	HTTPS	wx2.qq.com	/cgi-bin/mmwebwx-bin/webwxnewloginpage?ticket=A1pzaK6rx6Pv01F1vhN6K7F1@qrticket_0&uuid=QZZc2Nzdmg==&lang=zh_CN&scan=1440517170&vcdataticket=AQaQaY06Uf7QHyAPEuaiF9r6&vccdtstr=gM9WICaHnVmWwI3n1SLhCyTQ7tYAgFCXY8uDDM_2o_qc5wPZUZ2lyfM2nKA8tKXJ&fun=new&version=v2	223		text/html	chrome:10092			
+
+
+#	Result	Protocol	Host	URL	Body	Caching	Content-Type	Process	Comments	Custom	
+5	200	HTTPS	wx2.qq.com	/cgi-bin/mmwebwx-bin/webwxinit?r=-1703112229&pass_ticket=j0sZQPl%252Bwz20Wfqh5mngbT4pxmBI7KoNC1ePXNDx4Qaj3Lw7PUolvFfQYmdIXp%252BZ	49,282		text/plain	chrome:10092			
+#	Result	Protocol	Host	URL	Body	Caching	Content-Type	Process	Comments	Custom	
+6	200	HTTPS	wx2.qq.com	/cgi-bin/mmwebwx-bin/webwxinit?r=-1703112229&pass_ticket=j0sZQPl%252Bwz20Wfqh5mngbT4pxmBI7KoNC1ePXNDx4Qaj3Lw7PUolvFfQYmdIXp%252BZ	49,282		text/plain	chrome:10092			
+#	Result	Protocol	Host	URL	Body	Caching	Content-Type	Process	Comments	Custom	
+7	200	HTTPS	wx2.qq.com	/cgi-bin/mmwebwx-bin/webwxstatusnotify?pass_ticket=j0sZQPl%252Bwz20Wfqh5mngbT4pxmBI7KoNC1ePXNDx4Qaj3Lw7PUolvFfQYmdIXp%252BZ	73		text/plain	chrome:10092			
+
+#	Result	Protocol	Host	URL	Body	Caching	Content-Type	Process	Comments	Custom	
+9	200	HTTPS	wx2.qq.com	/cgi-bin/mmwebwx-bin/webwxgeticon?seq=651901495&username=@fbd4a56b26261cd651a98ba51ffa268c&skey=@crypt_67c13b2d_5d82a70ac80063199e51906f006e0138	4,581	max-age=604800	image/jpeg	chrome:10092			
+
+
+<error><ret>0</ret><message>OK</message><skey>@crypt_67c13b2d_74cd01399032b0f1b7d3e83b144c7d08</skey><wxsid>jlkuYkYCT75TJ/Kx</wxsid><wxuin>1547229180</wxuin><pass_ticket>YXaDwXGSamqCPavh1Ilq7Fk6qk%2FsnMs19IEkbRdLi2uUF%2B4yFYQa7lMKsmS4fY8M</pass_ticket><isgrayscale>1</isgrayscale></error>
