@@ -49,7 +49,7 @@ namespace WeChat
             if (Data.heads.ContainsKey(UserName))
                 return Data.heads[UserName];
 
-            string url = "http://wx.qq.com" + HeadImgUrl;
+            string url = WeGlobal.WechatHost.TrimEnd('/') + HeadImgUrl;
             WebRequest request = WebRequest.Create(url);
             request.Headers.Add(HttpRequestHeader.Cookie, Data.cookie);
             WebResponse response = request.GetResponse();
@@ -59,17 +59,23 @@ namespace WeChat
                 response.Close();
                 return null;
             }
-            Stream dataStream = response.GetResponseStream();
-            System.Drawing.Image img = System.Drawing.Image.FromStream(dataStream);
-            dataStream.Close();
-            response.Close();
+            try
+            {
+                Stream dataStream = response.GetResponseStream();
+                System.Drawing.Image img = System.Drawing.Image.FromStream(dataStream);
+                dataStream.Close();
+                response.Close();
 
-            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(img);
-            IntPtr hBitmap = bmp.GetHbitmap();
-            ImageSource WpfBitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(img);
+                IntPtr hBitmap = bmp.GetHbitmap();
+                ImageSource WpfBitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
 
-            Data.heads.Add(UserName, WpfBitmap);
-            return WpfBitmap;
+                Data.heads.Add(UserName, WpfBitmap);
+                return WpfBitmap;
+            }
+            catch {
+                return null;
+            }
         }
         
         /*

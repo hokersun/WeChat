@@ -51,11 +51,13 @@
                 <ColumnDefinition Width="149"></ColumnDefinition>
             </Grid.ColumnDefinitions>
             <Grid Grid.Column="0">
-                <Image MouseDown="ChatBtn_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Source="/WeChat;component/Resources/img/button_chat.png" Stretch="None"></Image>
+                <!--<Image MouseDown="ChatBtn_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Source="/WeChat;component/Resources/img/button_chat.png" Stretch="None"></Image>-->
+                <Button x:Name="btnStart" Content="开始直播" Click="btnStart_Click"></Button>
             </Grid>
             <Border Grid.Column="1" Width="2" Height="15" Background="#7E7E7E" HorizontalAlignment="Center"></Border>
             <Grid Grid.Column="2">
-                <Image MouseDown="ContactBtn_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Source="/WeChat;component/Resources/img/button_contact.png" Stretch="None"></Image>
+                <!--<Image MouseDown="ContactBtn_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Source="/WeChat;component/Resources/img/button_contact.png" Stretch="None"></Image>-->
+                <Button x:Name="btnStop" Content="停止直播" Click="btnStop_Click" IsEnabled="False"></Button>
             </Grid>
         </Grid>
         <ListBox Grid.Row="3" Name="listbox" ItemsSource="{Binding}" MouseDoubleClick="OpenDialog" Background="WhiteSmoke" BorderBrush="#FFC9CED3">

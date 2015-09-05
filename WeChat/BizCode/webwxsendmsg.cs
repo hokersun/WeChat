@@ -8,7 +8,7 @@ namespace WeChat
     public class webwxsendmsg
     {
         public BaseResponse BaseResponse { get; set; }
-        public long MsgID { get; set; }
+        public long? MsgID { get; set; }
         public string LocalID { get; set; }
     }
 }
